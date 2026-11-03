@@ -88,7 +88,7 @@ console.log('テスト1: FlightStickClient — 接続 URL / state / hello / send
 }
 
 // ================================================================
-console.log('テスト2: 仮想コックピット — 3ウィジェット常時表示・ドラッグ・位置保持（ラッチ）');
+console.log('テスト2: 仮想コックピット — 3ウィジェット常時表示・ドラッグ・バネ戻し（スロットルは保持）');
 {
   const fire = (type, ev) => {
     const e = { preventDefault() { this.pd = true; }, ...ev };
@@ -123,7 +123,7 @@ console.log('テスト2: 仮想コックピット — 3ウィジェット常時�
   fire('pointerup', P(1, 46, 228));
   assert(!touch.thr.active && touch.thr.value === 0.2, 'スロットル: 離しても現在値を保持');
 
-  // --- ラダー（位置保持・ラッチ／遊びなし: デッドゾーン 0） ---
+  // --- ラダー（バネ戻し／遊びなし: デッドゾーン 0） ---
   // 微小ドラッグ 1px から比例応答（細かい操縦調整が可能）
   fire('pointerdown', P(2, 97, 322)); // dx=+1
   assert(Math.abs(touch.rud.value - 1 / 54) < 1e-9, 'ラダー: 遊びなし 1px でも比例応答', `v=${touch.rud.value}`);
@@ -132,13 +132,10 @@ console.log('テスト2: 仮想コックピット — 3ウィジェット常時�
   fire('pointermove', P(2, 160, 322)); // dx=64 ≥ 全舵54 → +1
   assert(touch.rud.value === 1, 'ラダー: 全舵で +1');
   fire('pointerup', P(2, 160, 322));
-  assert(touch.rud.value === 1 && !touch.rud.active, 'ラダー: 離しても全舵位置を保持（ラッチ）');
-  // ノブを正確な中央へドラッグすると 0 に戻る
-  fire('pointerdown', P(20, 96, 322));
-  assert(touch.rud.value === 0, 'ラダー: 中央で中立復帰');
-  fire('pointerup', P(20, 96, 322));
+  assert(touch.rud.value === 0 && !touch.rud.active, 'ラダー: 離すとバネ戻しで中立');
+  assert(ruKnob0().style.left === '54px', 'ラダー: ノブも中央へ復帰');
 
-  // --- 操縦桿（2D・位置保持・ラッチ） ---
+  // --- 操縦桿（2D・バネ戻し） ---
   // rect 中央 (652,252): 右+44 → x=+1、上-50 → y=+1（上=押し=機首下げ側）
   fire('pointerdown', P(3, 700, 200));
   assert(touch.sj.active, '操縦桿: 押下で active');
@@ -150,17 +147,18 @@ console.log('テスト2: 仮想コックピット — 3ウィジェット常時�
   fire('pointerdown', P(4, 126, 322));
   assert(touch.sj.active && touch.rud.active, '操縦桿+ラダー同時操作可');
   fire('pointerup', P(4, 126, 322));
-  assert(Math.abs(touch.rud.value - 30 / 54) < 1e-9, 'ラダー解放後も押下位置を保持', `v=${touch.rud.value}`);
-  fire('pointerdown', P(23, 96, 322)); // 中立へ戻す
-  fire('pointerup', P(23, 96, 322));
-  assert(touch.rud.value === 0, 'ラダー: 中央ドラッグで中立復帰（2回目）');
+  assert(touch.rud.value === 0, 'ラダー: 指を離すと中立（操縦桿は操作中）');
+  assert(touch.sj.active && touch.sj.x === -1 && touch.sj.y === -1, '操縦桿: 他指離しでも操作中は維持');
   fire('pointerup', P(3, 604, 304));
-  assert(touch.sj.x === -1 && touch.sj.y === -1, '操縦桿: 離しても左下位置を保持（ラッチ）');
+  assert(touch.sj.x === 0 && touch.sj.y === 0 && !touch.sj.active, '操縦桿: 離すとバネ戻しで中立');
   assert(!touch.active, '全解除で active=false');
-  // ノブを中央へドラッグして中立復帰
-  fire('pointerdown', P(21, 652, 252));
-  assert(touch.sj.x === 0 && touch.sj.y === 0, '操縦桿: 中央ドラッグで中立復帰');
-  fire('pointerup', P(21, 652, 252));
+  // スロットルは指を離しても位置保持（実機のレバーと同じ）
+  assert(touch.thr.value === 0.2, 'スロットル: 依然として位置保持');
+  // blur 後もノブ中立
+  assert(ruKnob0().style.left === '54px', 'ラダーノブ: 中立位置');
+  assert(sjKnob0().style.left === '38px' && sjKnob0().style.top === '38px', '操縦桿ノブ: 中立位置');
+  function ruKnob0() { return madeEls[madeEls.findIndex((el) => el.className === 'virt vru') + 2]; }
+  function sjKnob0() { return madeEls[madeEls.findIndex((el) => el.className === 'virt vsj') + 1]; }
 
   // --- マウス（pointerType='mouse'） ---
   fire('pointerdown', P(10, 652, 252, { pointerType: 'mouse', button: 0 }));
@@ -180,13 +178,11 @@ console.log('テスト2: 仮想コックピット — 3ウィジェット常時�
   fire('pointerdown', P(13, 400, 700, { target: { closest: (sel) => (sel === '#speedCtl' ? {} : null) } }));
   assert(actions === a1 && !touch.active, '#speedCtl 上のタッチは無視');
 
-  // --- blur でポインタ解除（値とノブ位置は保持されたまま） ---
+  // --- blur でポインタ解除（ラダー・操縦桿は中立復帰） ---
   fire('pointerdown', P(14, 700, 200)); // 右上 → x=+1,y=+1
   assert(touch.sj.active, 'blur 用に操縦桿押下');
   fire('blur', {});
-  assert(!touch.sj.active && touch.sj.x === 1 && touch.sj.y === 1, 'blur: ポインタ解除・位置は保持');
-  fire('pointerdown', P(22, 652, 252)); // 中央へ戻す
-  fire('pointerup', P(22, 652, 252));
+  assert(!touch.sj.active && touch.sj.x === 0 && touch.sj.y === 0, 'blur: 操縦桿は中立復帰');
 
   // --- setDisplay（スティック/キーボード入力の連動表示） ---
   touch.setDisplay({ elevator: -1, aileron: 1, rudder: -1, throttle: 1 });

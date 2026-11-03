@@ -160,7 +160,7 @@
     スティック: 左右=エルロン 前後=エレベータ 手前レバー=スロットル 捻り=ラダー<br>
     &nbsp;&nbsp;（リレー起動時に自動認識／ボタン1=離陸・リスタート ボタン2=一時停止）<br>
     タッチ/マウス: 左下=スロットル(縦)・ラダー(横) ／ 右下=操縦桿（上下=上昇・下降 左右=旋回）<br>
-    &nbsp;&nbsp;離しても位置は保持される（遊びなし・微細に操作可、戻すときはノブを中央へ）
+    &nbsp;&nbsp;遊びなしで微細に操作可。ラダー・操縦桿は離すと自動で中央復帰（スロットルは保持）
   </p>
   <p class="ui" style="margin-top:18px">— 操縦桿を握れ。キー・スティック・タッチで離陸、画面タップでリスタート —</p>
 </div>
@@ -464,27 +464,26 @@
     };
     const sRoll = sa(0), sPitch = sa(1), sThr = sa(2), sYaw = sa(3);
 
-    // 仮想スティックは指を離しても最後の位置を保持する（ラッチ）。
-    // 遊び（デッドゾーン）はなく、微小ドラッグから比例応答する。
-    // 中立へ戻すにはノブを中央へ（0 になるとキーボード操作に復帰）。
+    // 仮想スティック: ラダー・操縦桿は指を離すとバネで中央復帰（操作中のみ有効）、
+    // スロットルのみ位置を保持。遊び（デッドゾーン）はない。
     // 縦: S=引く=機首上げ=負値 / スティック手前引き(+)=機首上げ(負) /
     //     仮想操縦桿は実機と同じで 押す(上)=機首下げ(正) / 引く(下)=機首上げ(負)
     let te = 0;
     if (keys.has('KeyS')) te -= 1;
     if (keys.has('KeyW')) te += 1;
-    if (touch.sj.y !== 0) te = touch.sj.y;
+    if (touch.sj.active) te = touch.sj.y;
     if (sPitch !== 0) te = -sPitch;
     // 横: D=右ロール=正値 / スティック右倒し(+)=正 / 仮想操縦桿 右=正
     let ta = 0;
     if (keys.has('KeyD')) ta += 1;
     if (keys.has('KeyA')) ta -= 1;
-    if (touch.sj.x !== 0) ta = touch.sj.x;
+    if (touch.sj.active) ta = touch.sj.x;
     if (sRoll !== 0) ta = sRoll;
     // 方向: Q=機首左=正値 / スティック右ひねり(+)=機首右(負) / 仮想ラダー 右=右ヨー(負)
     let tr = 0;
     if (keys.has('KeyQ')) tr += 1;
     if (keys.has('KeyE')) tr -= 1;
-    if (touch.rud.value !== 0) tr = -touch.rud.value;
+    if (touch.rud.active) tr = -touch.rud.value;
     if (sYaw !== 0) tr = -sYaw;
 
     moveToward(input, 'elevator', te, RATE.elevator * dt);
